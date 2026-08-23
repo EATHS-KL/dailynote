@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>30-Day Life Tracker</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-light: #6b7280;
+            --primary: #3b82f6;
+            --good: #10b981;
+            --normal: #f59e0b;
+            --bad: #ef4444;
+            --border: #e5e7eb;
+        }
+
+        body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-main); margin: 0; padding: 20px 15px; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 500px; }
+        
+        .header { text-align: center; margin-bottom: 25px; }
+        .header h1 { color: var(--text-main); margin: 0; font-size: 24px; font-weight: 800; }
+        .header p { color: var(--text-light); font-size: 14px; margin-top: 5px; }
+
+        .tabs { display: flex; gap: 8px; margin-bottom: 20px; background: #e5e7eb; padding: 5px; border-radius: 12px; }
+        .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--text-light); transition: 0.3s; font-size: 14px; }
+        .tab-btn.active { background: var(--card-bg); color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        
+        .section { display: none; background: var(--card-bg); padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+        .section.active { display: block; }
+        
+        label { display: block; margin-top: 20px; font-weight: 600; font-size: 14px; color: var(--text-main); margin-bottom: 8px; }
+        textarea, input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; box-sizing: border-box; font-family: inherit; font-size: 14px; background: #f9fafb; resize: vertical; transition: 0.2s; }
+        textarea:focus, input:focus { outline: none; border-color: var(--primary); background: #fff; }
+        
+        /* Mood Selector */
+        .mood-container { display: flex; gap: 10px; margin-top: 10px; }
+        .mood-btn { flex: 1; padding: 15px 5px; border: 2px solid var(--border); background: #fff; border-radius: 12px; cursor: pointer; font-weight: bold; transition: 0.2s; text-align: center; font-size: 14px; }
+        .mood-btn span { display: block; font-size: 24px; margin-bottom: 5px; }
+        
+        .mood-btn[data-val="Awesome"].selected { border-color: var(--good); background: #ecfdf5; color: var(--good); }
+        .mood-btn[data-val="Normal"].selected { border-color: var(--normal); background: #fffbeb; color: var(--normal); }
+        .mood-btn[data-val="Bad"].selected { border-color: var(--bad); background: #fef2f2; color: var(--bad); }
+
+        button.action-btn { width: 100%; padding: 15px; margin-top: 25px; background: var(--primary); color: white; border: none; border-radius: 10px; font-size: 16px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button.action-btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        button.action-btn:disabled { background: #9ca3af; cursor: not-allowed; transform: none; }
+        
+        button.danger-btn { background: #fee2e2; color: var(--bad); }
+
+        /* Dashboard Stats */
+        .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+        .stat-card { background: #f9fafb; padding: 15px; border-radius: 12px; text-align: center; border: 1px solid var(--border); }
+        .stat-card h3 { margin: 0; font-size: 24px; color: var(--text-main); }
+        .stat-card p { margin: 5px 0 0 0; font-size: 12px; color: var(--text-light); font-weight: 600; text-transform: uppercase; }
+        
+        /* History List */
+        .history-card { padding: 15px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 12px; border-left: 5px solid gray; }
+        .history-card.Awesome { border-left-color: var(--good); background: #f4fbf7; }
+        .history-card.Normal { border-left-color: var(--normal); background: #fffdf5; }
+        .history-card.Bad { border-left-color: var(--bad); background: #fff5f5; }
+        
+        .card-header { display: flex; justify-content: space-between; font-size: 12px; color: var(--text-light); margin-bottom: 8px; font-weight: 600; }
+        .card-body p { margin: 0 0 5px 0; font-size: 14px; }
+        
+        #ai-result { margin-top: 20px; padding: 20px; background: #eff6ff; border-radius: 12px; border: 1px solid #bfdbfe; font-size: 14px; line-height: 1.6; display: none; color: #1e3a8a; }
+        .btn-group { display: flex; gap: 10px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🗓️ 30-Day Life Tracker</h1>
+        <p>1 minute a day. Find your hidden patterns.</p>
+    </div>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="showTab('daily-log')">Today's Log</button>
+        <button class="tab-btn" onclick="showTab('dashboard')">Dashboard & AI</button>
+        <button class="tab-btn" onclick="showTab('settings')">Settings</button>
+    </div>
+
+    <!-- TAB 1: DAILY LOG -->
+    <div id="daily-log" class="section active">
+        <label>How was your day overall?</label>
+        <div class="mood-container">
+            <div class="mood-btn" data-val="Awesome" onclick="selectMood('Awesome')"><span>🟢</span>Awesome</div>
+            <div class="mood-btn" data-val="Normal" onclick="selectMood('Normal')"><span>🟡</span>Normal</div>
+            <div class="mood-btn" data-val="Bad" data-val="Bad" onclick="selectMood('Bad')"><span>🔴</span>Bad</div>
+        </div>
+        
+        <label>What went well today? (Highlights)</label>
+        <textarea id="good-text" rows="2" placeholder="e.g., Finished my work on time, talked to a friend..."></textarea>
+        
+        <label>What drained you or went wrong? (Lowlights)</label>
+        <textarea id="bad-text" rows="2" placeholder="e.g., Overthinking about the future, felt lazy and scrolled..."></textarea>
+
+        <button class="action-btn" onclick="saveDay()">Save My Day 💾</button>
+    </div>
+
+    <!-- TAB 2: DASHBOARD & AI -->
+    <div id="dashboard" class="section">
+        <div class="stats-grid">
+            <div class="stat-card" style="grid-column: span 2;">
+                <h3 id="stat-total">0</h3><p>Total Days Logged</p>
+            </div>
+            <div class="stat-card" style="border-bottom: 3px solid var(--good);">
+                <h3 id="stat-good">0</h3><p>Good Days</p>
+            </div>
+            <div class="stat-card" style="border-bottom: 3px solid var(--bad);">
+                <h3 id="stat-bad">0</h3><p>Bad Days</p>
+            </div>
+        </div>
+
+        <button class="action-btn" style="background: #111827; margin-top: 10px;" id="ai-btn" onclick="runAIAnalysis()">✨ Run 30-Day AI Analysis</button>
+        <p style="text-align:center; font-size: 11px; color: gray; margin-top: 5px;">Best used after logging at least 7-10 days.</p>
+        
+        <div id="ai-result"></div>
+
+        <h4 style="margin-top: 30px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Recent Logs</h4>
+        <div id="history-list"></div>
+    </div>
+
+    <!-- TAB 3: SETTINGS -->
+    <div id="settings" class="section">
+        <h3 style="margin-top:0;">🔑 API Setup</h3>
+        <p style="font-size: 12px; color: var(--text-light);">Required for AI Analysis. Stored securely in your browser.</p>
+        
+        <label>Gemini API Key:</label>
+        <input type="password" id="api-key" placeholder="Paste Gemini API Key here...">
+        
+        <button class="action-btn" style="background: var(--good); padding: 12px;" onclick="saveSettings()">Save Key</button>
+        <p id="save-status" style="color: var(--good); font-size: 12px; display: none; margin-top: 5px; text-align: center; font-weight: bold;">Saved Successfully!</p>
+
+        <hr style="border: 0; border-top: 1px dashed var(--border); margin: 30px 0;">
+
+        <h3>💾 Backup & Reset</h3>
+        <div class="btn-group">
+            <button class="action-btn" style="margin-top: 0; background: #6b7280; flex: 1;" onclick="exportData()">Backup ⬇️</button>
+            <input type="file" id="import-file" style="display:none" accept=".json" onchange="importData(event)">
+            <button class="action-btn" style="margin-top: 0; background: #6b7280; flex: 1;" onclick="document.getElementById('import-file').click()">Restore ⬆️</button>
+        </div>
+        
+        <button class="action-btn danger-btn" style="margin-top: 15px;" onclick="clearAllData()">Wipe All Data ⚠️</button>
+    </div>
+</div>
+
+<script>
+    let diaryEntries = JSON.parse(localStorage.getItem('lifeTrackerData')) || [];
+    let currentMood = "";
+
+    window.onload = function() {
+        const savedKey = localStorage.getItem('lifeTrackerApiKey');
+        if(savedKey) document.getElementById('api-key').value = savedKey;
+        updateDashboard();
+    };
+
+    function showTab(tabId) {
+        document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+        if(tabId === 'dashboard') updateDashboard();
+    }
+
+    function selectMood(mood) {
+        currentMood = mood;
+        document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
+        document.querySelector(`.mood-btn[data-val="${mood}"]`).classList.add('selected');
+    }
+
+    function saveSettings() {
+        const key = document.getElementById('api-key').value.trim();
+        if(!key) return alert("Please enter an API key.");
+        localStorage.setItem('lifeTrackerApiKey', key);
+        
+        const status = document.getElementById('save-status');
+        status.style.display = 'block';
+        setTimeout(() => status.style.display = 'none', 3000);
+    }
+
+    function saveDay() {
+        if(!currentMood) return alert("Please select how your day was!");
+        
+        const goodText = document.getElementById('good-text').value.trim();
+        const badText = document.getElementById('bad-text').value.trim();
+
+        const todayDate = new Date().toLocaleDateString('en-IN');
+        
+        // Prevent double entry for the same day (Optional, but good practice)
+        const existingIndex = diaryEntries.findIndex(e => e.date === todayDate);
+        
+        const newEntry = {
+            id: Date.now(),
+            date: todayDate,
+            timestamp: new Date().getTime(),
+            mood: currentMood,
+            goodThings: goodText || "Nothing specific",
+            badThings: badText || "Nothing specific"
+        };
+
+        if (existingIndex > -1) {
+            if(confirm("You already have an entry for today. Overwrite it?")) {
+                diaryEntries[existingIndex] = newEntry;
+            } else { return; }
+        } else {
+            diaryEntries.push(newEntry);
+        }
+
+        localStorage.setItem('lifeTrackerData', JSON.stringify(diaryEntries));
+        
+        alert("Day logged successfully!");
+        
+        // Reset form
+        currentMood = "";
+        document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
+        document.getElementById('good-text').value = '';
+        document.getElementById('bad-text').value = '';
+        
+        updateDashboard();
+    }
+
+    function updateDashboard() {
+        const total = diaryEntries.length;
+        const good = diaryEntries.filter(e => e.mood === 'Awesome').length;
+        const bad = diaryEntries.filter(e => e.mood === 'Bad').length;
+
+        document.getElementById('stat-total').innerText = total;
+        document.getElementById('stat-good').innerText = good;
+        document.getElementById('stat-bad').innerText = bad;
+
+        const historyContainer = document.getElementById('history-list');
+        historyContainer.innerHTML = '';
+        
+        if(total === 0) {
+            historyContainer.innerHTML = '<p style="color: gray; text-align: center; font-size: 14px;">No logs yet. Go add today\'s entry!</p>';
+            return;
+        }
+
+        const recentEntries = [...diaryEntries].reverse().slice(0, 10); // Show last 10 entries
+        
+        recentEntries.forEach(entry => {
+            let emoji = entry.mood === 'Awesome' ? '🟢' : entry.mood === 'Normal' ? '🟡' : '🔴';
+            
+            const div = document.createElement('div');
+            div.className = `history-card ${entry.mood}`;
+            div.innerHTML = `
+                <div class="card-header">
+                    <span>📅 ${entry.date}</span>
+                    <span>${emoji} ${entry.mood} Day</span>
+                </div>
+                <div class="card-body">
+                    ${entry.goodThings !== "Nothing specific" ? `<p><strong>✓ Highlights:</strong> ${entry.goodThings}</p>` : ''}
+                    ${entry.badThings !== "Nothing specific" ? `<p><strong>✕ Drains:</strong> ${entry.badThings}</p>` : ''}
+                </div>
+                <button onclick="deleteEntry(${entry.id})" style="background:none; border:none; color: #ef4444; cursor:pointer; font-size:11px; font-weight:bold; padding:0; margin-top: 8px;">Delete Entry 🗑️</button>
+            `;
+            historyContainer.appendChild(div);
+        });
+    }
+
+    function deleteEntry(id) {
+        if(confirm("Delete this log?")) {
+            diaryEntries = diaryEntries.filter(e => e.id !== id);
+            localStorage.setItem('lifeTrackerData', JSON.stringify(diaryEntries));
+            updateDashboard();
+        }
+    }
+
+    async function runAIAnalysis() {
+        const apiKey = localStorage.getItem('lifeTrackerApiKey');
+        const aiBtn = document.getElementById('ai-btn');
+        const resultBox = document.getElementById('ai-result');
+        
+        if(!apiKey) return alert("Please save your API Key in the 'Settings' tab first.");
+        if(diaryEntries.length < 3) return alert("Not enough data! Please log at least 3 days before running AI analysis.");
+
+        aiBtn.innerText = "Analyzing your days... ⏳";
+        aiBtn.disabled = true;
+        resultBox.style.display = 'block';
+        resultBox.innerHTML = '<i>🧠 Reading your patterns...</i>';
+
+        const promptText = `
+        You are a highly perceptive behavioral psychologist and life coach. 
+        Analyze my daily diary entries from the last few days/weeks.
+        
+        Data: ${JSON.stringify(diaryEntries)}
+
+        Provide a deep, brutally honest, but constructive analysis in conversational Hindi/Hinglish. Use Markdown formatting.
+        Structure your response EXACTLY like this:
+
+        ### 🔍 1. तुम्हारा पैटर्न (The Pattern)
+        [Analyze the correlation between my "Bad/Awesome" days and the text I wrote. What makes a day "Bad" for me? What activities or thoughts make it "Awesome"? Find the hidden link.]
+
+        ### ⚠️ 2. तुम्हारा सबसे बड़ा दुश्मन (Hidden Trigger)
+        [What is the ONE recurring theme, habit, or thought that drains my energy in the "Lowlights"? Expose the root cause of my bad days.]
+
+        ### 💡 3. अगले 30 दिन का रूल (The Golden Rule)
+        [Give me ONE extremely specific, highly actionable rule to follow for the next 30 days to convert my "Bad/Normal" days into "Awesome" days based strictly on my own data.]
+        `;
+
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: promptText }] }]
+                })
+            });
+
+            const data = await response.json();
+            
+            if (!response.ok) {
+                const exactError = data.error && data.error.message ? data.error.message : "API Error";
+                throw new Error(exactError);
+            }
+
+            const aiText = data.candidates[0].content.parts[0].text;
+            
+            let formattedText = aiText
+                .replace(/### (.*?)\n/g, '<h3>$1</h3>')
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n/g, '<br>');
+
+            resultBox.innerHTML = formattedText;
+            
+        } catch (error) {
+            resultBox.innerHTML = `
+                <div style="color: #991b1b; background: #fee2e2; padding: 10px; border-radius: 8px;">
+                    <strong>Analysis Failed!</strong><br>
+                    Reason: ${error.message}<br>
+                    <em>Tip: Ensure your API key is correct in Settings and you have internet connection.</em>
+                </div>`;
+        } finally {
+            aiBtn.innerText = "✨ Run 30-Day AI Analysis";
+            aiBtn.disabled = false;
+        }
+    }
+
+    function exportData() {
+        if(diaryEntries.length === 0) return alert("No data to backup!");
+        const dataStr = localStorage.getItem('lifeTrackerData');
+        const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+        const linkElement = document.createElement('a');
+        linkElement.setAttribute('href', dataUri);
+        linkElement.setAttribute('download', '30_day_life_tracker_backup.json');
+        linkElement.click();
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const importedData = JSON.parse(e.target.result);
+                if(Array.isArray(importedData)) {
+                    diaryEntries = importedData;
+                    localStorage.setItem('lifeTrackerData', JSON.stringify(diaryEntries));
+                    updateDashboard();
+                    alert("Data restored successfully! 🎉");
+                } else { alert("Invalid backup file."); }
+            } catch(err) { alert("Error reading file."); }
+        };
+        event.target.value = ''; 
+        reader.readAsText(file);
+    }
+
+    function clearAllData() {
+        if(confirm("WARNING: Delete all your diary logs permanently? This cannot be undone!")) {
+            diaryEntries = [];
+            localStorage.removeItem('lifeTrackerData');
+            updateDashboard();
+            document.getElementById('ai-result').style.display = 'none';
+            alert("All data wiped clean.");
+        }
+    }
+</script>
+
+</body>
+</html>
