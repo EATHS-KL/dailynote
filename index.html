@@ -33,7 +33,7 @@
         .section { display: none; background: var(--card-bg); padding: 25px; border-radius: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
         .section.active { display: block; }
         
-        label { display: block; margin-top: 20px; font-weight: 600; font-size: 14px; color: var(--text-main); margin-bottom: 8px; }
+        label { display: block; margin-top: 15px; font-weight: 600; font-size: 14px; color: var(--text-main); margin-bottom: 8px; }
         textarea, input { width: 100%; padding: 12px; border: 1.5px solid var(--border); border-radius: 10px; box-sizing: border-box; font-family: inherit; font-size: 14px; background: #f9fafb; resize: vertical; transition: 0.2s; }
         textarea:focus, input:focus { outline: none; border-color: var(--primary); background: #fff; }
         
@@ -80,27 +80,31 @@
     </div>
     
     <div class="tabs">
-        <button class="tab-btn active" onclick="showTab('daily-log')">Today's Log</button>
+        <button class="tab-btn active" onclick="showTab('daily-log')">Log Entry</button>
         <button class="tab-btn" onclick="showTab('dashboard')">Dashboard & AI</button>
         <button class="tab-btn" onclick="showTab('settings')">Settings</button>
     </div>
 
     <!-- TAB 1: DAILY LOG -->
     <div id="daily-log" class="section active">
+        <!-- Date Selector Added -->
+        <label>Select Date:</label>
+        <input type="date" id="entry-date">
+
         <label>How was your day overall?</label>
         <div class="mood-container">
             <div class="mood-btn" data-val="Awesome" onclick="selectMood('Awesome')"><span>🟢</span>Awesome</div>
             <div class="mood-btn" data-val="Normal" onclick="selectMood('Normal')"><span>🟡</span>Normal</div>
-            <div class="mood-btn" data-val="Bad" data-val="Bad" onclick="selectMood('Bad')"><span>🔴</span>Bad</div>
+            <div class="mood-btn" data-val="Bad" onclick="selectMood('Bad')"><span>🔴</span>Bad</div>
         </div>
         
-        <label>What went well today? (Highlights)</label>
-        <textarea id="good-text" rows="2" placeholder="e.g., Finished my work on time, talked to a friend..."></textarea>
+        <label>What went well? (Highlights)</label>
+        <textarea id="good-text" rows="2" placeholder="e.g., Finished work on time, went for a run..."></textarea>
         
         <label>What drained you or went wrong? (Lowlights)</label>
-        <textarea id="bad-text" rows="2" placeholder="e.g., Overthinking about the future, felt lazy and scrolled..."></textarea>
+        <textarea id="bad-text" rows="2" placeholder="e.g., Wasted time scrolling, overthinking..."></textarea>
 
-        <button class="action-btn" onclick="saveDay()">Save My Day 💾</button>
+        <button class="action-btn" onclick="saveDay()">Save Entry 💾</button>
     </div>
 
     <!-- TAB 2: DASHBOARD & AI -->
@@ -122,7 +126,7 @@
         
         <div id="ai-result"></div>
 
-        <h4 style="margin-top: 30px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Recent Logs</h4>
+        <h4 style="margin-top: 30px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">Logged Days</h4>
         <div id="history-list"></div>
     </div>
 
@@ -157,8 +161,19 @@
     window.onload = function() {
         const savedKey = localStorage.getItem('lifeTrackerApiKey');
         if(savedKey) document.getElementById('api-key').value = savedKey;
+        
+        // Set today's date in input by default
+        setDefaultDate();
         updateDashboard();
     };
+
+    function setDefaultDate() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        document.getElementById('entry-date').value = `${year}-${month}-${day}`;
+    }
 
     function showTab(tabId) {
         document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
@@ -185,42 +200,51 @@
     }
 
     function saveDay() {
+        const selectedDateVal = document.getElementById('entry-date').value;
+        if(!selectedDateVal) return alert("Please select a date!");
         if(!currentMood) return alert("Please select how your day was!");
         
         const goodText = document.getElementById('good-text').value.trim();
         const badText = document.getElementById('bad-text').value.trim();
 
-        const todayDate = new Date().toLocaleDateString('en-IN');
+        // Convert YYYY-MM-DD to DD/MM/YYYY for display
+        const [year, month, day] = selectedDateVal.split('-');
+        const formattedDate = `${day}/${month}/${year}`;
         
-        // Prevent double entry for the same day (Optional, but good practice)
-        const existingIndex = diaryEntries.findIndex(e => e.date === todayDate);
+        // Check if an entry for this exact date already exists
+        const existingIndex = diaryEntries.findIndex(e => e.date === formattedDate);
         
         const newEntry = {
             id: Date.now(),
-            date: todayDate,
-            timestamp: new Date().getTime(),
+            date: formattedDate,
+            rawDate: selectedDateVal,
+            timestamp: new Date(selectedDateVal).getTime(),
             mood: currentMood,
             goodThings: goodText || "Nothing specific",
             badThings: badText || "Nothing specific"
         };
 
         if (existingIndex > -1) {
-            if(confirm("You already have an entry for today. Overwrite it?")) {
+            if(confirm(`You already have an entry for ${formattedDate}. Do you want to update it?`)) {
                 diaryEntries[existingIndex] = newEntry;
             } else { return; }
         } else {
             diaryEntries.push(newEntry);
         }
 
+        // Sort by date automatically
+        diaryEntries.sort((a, b) => new Date(a.rawDate || 0) - new Date(b.rawDate || 0));
+
         localStorage.setItem('lifeTrackerData', JSON.stringify(diaryEntries));
         
-        alert("Day logged successfully!");
+        alert(`Entry for ${formattedDate} saved successfully!`);
         
-        // Reset form
+        // Reset form to today's date
         currentMood = "";
         document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
         document.getElementById('good-text').value = '';
         document.getElementById('bad-text').value = '';
+        setDefaultDate();
         
         updateDashboard();
     }
@@ -238,11 +262,11 @@
         historyContainer.innerHTML = '';
         
         if(total === 0) {
-            historyContainer.innerHTML = '<p style="color: gray; text-align: center; font-size: 14px;">No logs yet. Go add today\'s entry!</p>';
+            historyContainer.innerHTML = '<p style="color: gray; text-align: center; font-size: 14px;">No logs yet. Go add an entry!</p>';
             return;
         }
 
-        const recentEntries = [...diaryEntries].reverse().slice(0, 10); // Show last 10 entries
+        const recentEntries = [...diaryEntries].reverse();
         
         recentEntries.forEach(entry => {
             let emoji = entry.mood === 'Awesome' ? '🟢' : entry.mood === 'Normal' ? '🟡' : '🔴';
