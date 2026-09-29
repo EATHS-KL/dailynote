@@ -87,7 +87,6 @@
 
     <!-- TAB 1: DAILY LOG -->
     <div id="daily-log" class="section active">
-        <!-- Date Selector Added -->
         <label>Select Date:</label>
         <input type="date" id="entry-date">
 
@@ -162,7 +161,6 @@
         const savedKey = localStorage.getItem('lifeTrackerApiKey');
         if(savedKey) document.getElementById('api-key').value = savedKey;
         
-        // Set today's date in input by default
         setDefaultDate();
         updateDashboard();
     };
@@ -207,11 +205,9 @@
         const goodText = document.getElementById('good-text').value.trim();
         const badText = document.getElementById('bad-text').value.trim();
 
-        // Convert YYYY-MM-DD to DD/MM/YYYY for display
         const [year, month, day] = selectedDateVal.split('-');
         const formattedDate = `${day}/${month}/${year}`;
         
-        // Check if an entry for this exact date already exists
         const existingIndex = diaryEntries.findIndex(e => e.date === formattedDate);
         
         const newEntry = {
@@ -232,14 +228,12 @@
             diaryEntries.push(newEntry);
         }
 
-        // Sort by date automatically
         diaryEntries.sort((a, b) => new Date(a.rawDate || 0) - new Date(b.rawDate || 0));
 
         localStorage.setItem('lifeTrackerData', JSON.stringify(diaryEntries));
         
         alert(`Entry for ${formattedDate} saved successfully!`);
         
-        // Reset form to today's date
         currentMood = "";
         document.querySelectorAll('.mood-btn').forEach(btn => btn.classList.remove('selected'));
         document.getElementById('good-text').value = '';
@@ -296,6 +290,40 @@
         }
     }
 
+    // --- AUTO-DETECT MODEL & RUN AI ANALYSIS ---
+    async function getWorkingModelName(apiKey) {
+        try {
+            // Google API se sabhi available models fetch karo
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+            const data = await res.json();
+            
+            if (!res.ok || !data.models) {
+                return 'models/gemini-1.5-flash'; // Fallbackagar error ho
+            }
+
+            // Flash model filter karo jo generateContent support karta ho
+            const flashModel = data.models.find(m => 
+                m.name.includes('flash') && 
+                m.supportedGenerationMethods && 
+                m.supportedGenerationMethods.includes('generateContent')
+            );
+
+            if (flashModel) {
+                return flashModel.name; // e.g. "models/gemini-1.5-flash"
+            }
+
+            // Agar Flash na mile to pehla generateContent wala model le lo
+            const validModel = data.models.find(m => 
+                m.supportedGenerationMethods && 
+                m.supportedGenerationMethods.includes('generateContent')
+            );
+
+            return validModel ? validModel.name : 'models/gemini-1.5-flash';
+        } catch (e) {
+            return 'models/gemini-1.5-flash';
+        }
+    }
+
     async function runAIAnalysis() {
         const apiKey = localStorage.getItem('lifeTrackerApiKey');
         const aiBtn = document.getElementById('ai-btn');
@@ -304,10 +332,10 @@
         if(!apiKey) return alert("Please save your API Key in the 'Settings' tab first.");
         if(diaryEntries.length < 3) return alert("Not enough data! Please log at least 3 days before running AI analysis.");
 
-        aiBtn.innerText = "Analyzing your days... ⏳";
+        aiBtn.innerText = "Finding best AI model... ⏳";
         aiBtn.disabled = true;
         resultBox.style.display = 'block';
-        resultBox.innerHTML = '<i>🧠 Reading your patterns...</i>';
+        resultBox.innerHTML = '<i>🧠 Detecting available models & reading patterns...</i>';
 
         const promptText = `
         You are a highly perceptive behavioral psychologist and life coach. 
@@ -329,7 +357,13 @@
         `;
 
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${apiKey}`, {
+            // 1. Auto-detect working model
+            const activeModel = await getWorkingModelName(apiKey);
+            
+            aiBtn.innerText = "Analyzing your days... ⏳";
+
+            // 2. Dynamic model url se request bhejo
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/${activeModel}:generateContent?key=${apiKey}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
